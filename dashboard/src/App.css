@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Syne+Mono&display=swap');
+
+:root {
+  --bg: #060a0d;
+  --surface: #0d1318;
+  --border: #1e2c38;
+  --accent: #00d4ff;
+  --green: #00ff88;
+  --red: #ff3b5c;
+  --yellow: #ffd600;
+  --muted: #4a6070;
+  --text: #c8dce8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; font-size: 14px; }
+
+.app { max-width: 1280px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+
+.header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.logo { font-weight: 700; font-size: 18px; letter-spacing: 0.04em; color: var(--accent); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.refresh-ts { font-family: 'Syne Mono', monospace; font-size: 11px; color: var(--muted); }
+.btn-refresh { background: var(--surface); border: 1px solid var(--border); color: var(--accent); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: 'Syne Mono', monospace; font-size: 12px; }
+.btn-refresh:hover { border-color: var(--accent); }
+
+.tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.card-title { font-weight: 700; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+table { width: 100%; border-collapse: collapse; font-family: 'Syne Mono', monospace; font-size: 12px; }
+th { color: var(--muted); text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+td { padding: 5px 8px; border-bottom: 1px solid #111c24; }
+
+.chip { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; }
+.chip-call  { background: #00ff8822; color: var(--green); border: 1px solid #00ff8844; }
+.chip-put   { background: #ff3b5c22; color: var(--red);   border: 1px solid #ff3b5c44; }
+.chip-lock  { background: #ffd60022; color: var(--yellow); border: 1px solid #ffd60044; }
+.chip-state-NORMAL    { color: var(--text); }
+.chip-state-BULL_TRAP { color: var(--yellow); border: 1px solid #ffd60044; background: #ffd60022; }
+.chip-state-WATERFALL { color: var(--red);    border: 1px solid #ff3b5c44; background: #ff3b5c22; }
+.chip-state-V_BOTTOM  { color: var(--green);  border: 1px solid #00ff8844; background: #00ff8822; }
+
+.state-banner { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.state-label { font-size: 22px; font-weight: 700; }
+.state-detail { color: var(--muted); font-size: 12px; font-family: 'Syne Mono', monospace; }
+.locks { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.agent-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.agent-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.agent-role { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.agent-schema { font-family: 'Syne Mono', monospace; font-size: 11px; color: var(--accent); }
+
+.empty { color: var(--muted); font-family: 'Syne Mono', monospace; font-size: 12px; padding: 8px 0; }
