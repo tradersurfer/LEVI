@@ -6,7 +6,7 @@
 ### Options Intelligence & Execution Agent
 
 <p align="center">
-  <a href="https://jecigroup.com"><img src="https://img.shields.io/badge/Built%20by-JECI%20Group-D4AF37?style=for-the-badge" alt="JECI Group"></a>
+  <a href="https://jecigroup.com"><img src="https://img.shields.io/badge/Built%20by-JECI%20AI-D4AF37?style=for-the-badge" alt="JECI AI"></a>
   <img src="https://img.shields.io/badge/Status-Production-brightgreen?style=for-the-badge" alt="Production">
   <img src="https://img.shields.io/badge/Paper%20Mode-Default%20ON-orange?style=for-the-badge" alt="Paper Mode">
   <img src="https://img.shields.io/badge/Consensus-3%2F3%20Unanimous-1B365D?style=for-the-badge" alt="Consensus">
