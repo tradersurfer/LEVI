@@ -158,9 +158,9 @@ def test_sub_agents_called_and_metrics_populated_no_tt_calls(monkeypatch):
         # ── assertions ────────────────────────────────────────────────────────
 
         # Sub-agents called exactly once each
-        mock_scout.assert_called_once_with(["NVDA"])
+        mock_scout.assert_called_once_with("NVDA")
         mock_atlas.assert_called_once_with("NVDA")
-        mock_lens.assert_called_once_with("NVDA")
+        mock_lens.assert_called_once_with("NVDA", "CALL")
 
         # Consensus was called (moat passed → consensus reached)
         consensus.evaluate.assert_called_once()

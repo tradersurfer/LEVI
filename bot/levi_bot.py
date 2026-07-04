@@ -537,9 +537,9 @@ class JECIOptionsBot:
             return
 
         # -- LEVI Sub-Agent Pre-Consensus Layer --------------------------------
-        scout_out = SCOUT.scan([sig.symbol])
+        scout_out = SCOUT.scan(sig.symbol)
         atlas_out = ATLAS.analyze(sig.symbol)
-        lens_out  = LENS.analyze(sig.symbol)
+        lens_out  = LENS.analyze(sig.symbol, sig.direction)
         # -- LAYER 0+1+2: Risk Moat -> SCOUT/ATLAS/LENS -> Tri-Agent Consensus -
         rsi15 = fetch_rsi15(sig.symbol)
         proposal = TradeProposal(
