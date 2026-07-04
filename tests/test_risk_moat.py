@@ -7,7 +7,7 @@ from bot.consensus_engine import RiskMoat, TradeProposal
 
 # ── base clean proposal (should pass moat) ───────────────────────────────────
 BASE = dict(
-    account_tier="TRADERSURFER",
+    account_tier="CORE",
     symbol="NVDA",
     direction="CALL",
     option_symbol="NVDA 240119C00500000",
@@ -33,23 +33,23 @@ def test_1dte_rejected():
     assert any("4DTE" in f or "DTE" in f for f in fails)
 
 
-# 2a. Robyhood $151 total premium → REJECTED
-def test_robyhood_over_cap_rejected():
+# 2a. Sandbox $151 total premium → REJECTED
+def test_sandbox_over_cap_rejected():
     # premium=1.51, qty=1 → total_cost = $151.00
-    ok, fails = RiskMoat.validate(p(account_tier="ROBYHOOD", premium=1.51, quantity=1))
+    ok, fails = RiskMoat.validate(p(account_tier="SANDBOX", premium=1.51, quantity=1))
     assert not ok
     assert any("SANDBOX CAP" in f or "150" in f for f in fails)
 
 
-# 2b. Robyhood $149 → passes that check
-def test_robyhood_under_cap_passes():
-    ok, fails = RiskMoat.validate(p(account_tier="ROBYHOOD", premium=1.49, quantity=1))
+# 2b. Sandbox $149 → passes that check
+def test_sandbox_under_cap_passes():
+    ok, fails = RiskMoat.validate(p(account_tier="SANDBOX", premium=1.49, quantity=1))
     # should pass the sandbox cap rule (may still pass overall)
     cap_fails = [f for f in fails if "SANDBOX CAP" in f or "150" in f]
     assert len(cap_fails) == 0
 
 
-# 3. TraderSurfer position > 3.29% net liq → REJECTED
+# 3. Core position > 3.29% net liq → REJECTED
 def test_position_over_pct_rejected():
     # net_liq=100_000, max=3.29% → $3,290; set premium=33.0, qty=1 → $3,300
     ok, fails = RiskMoat.validate(p(premium=33.0, quantity=1, net_liq=100_000.0))

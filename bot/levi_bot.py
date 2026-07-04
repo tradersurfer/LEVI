@@ -2,8 +2,8 @@
 ╔══════════════════════════════════════════════════════════════════╗
 ║     JECI OPTIONS BOT v2  ·  Tri-Tier + Consensus + State Engine  ║
 ║                                                                  ║
-║  TraderSurfer  — Master Swing Desk    (institutional alpha)     ║
-║  Robyhood      — Kids' Sandbox        ($150 cap · 4DTE min)     ║
+║  Core  — Master Swing Desk    (institutional alpha)     ║
+║  Sandbox      — Kids' Sandbox        ($150 cap · 4DTE min)     ║
 ║  Family HODL   — Generational Trust   (equity alerts only)      ║
 ║                                                                  ║
 ║  NEW IN v2 (merged from live-tape session):                      ║
@@ -12,7 +12,7 @@
 ║   · Master Risk Moat     — programmatic, runs before any LLM    ║
 ║   · Averaging-down ban   + daily re-entry blocklist after stops ║
 ║   · Patience Matrix      — no panic stops on DTE>=60 in flush   ║
-║   · STAX alpha tickers   — GLXY, NOK added to TraderSurfer      ║
+║   · STAX alpha tickers   — GLXY, NOK added to Core      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 RUN:
@@ -78,7 +78,7 @@ ACCT_HODL         = os.getenv("ACCT_HODL", "")
 
 BASE_URL = "https://api.cert.tastyworks.com" if PAPER else "https://api.tastyworks.com"
 
-# ─── TIER 1: ROBYHOOD ────────────────────────────────────────────────────────
+# ─── TIER 1: SANDBOX ────────────────────────────────────────────────────────
 SANDBOX_WATCHLIST = ["CLSK","MARA","RIOT","HUT","QS","SOFI","RKLB","TWST","PHAR"]
 SANDBOX_RULES = {
     "max_alloc_pct":   15,
@@ -91,7 +91,7 @@ SANDBOX_RULES = {
     "profit_target":   1.50,
 }
 
-# ─── TIER 2: TRADERSURFER (+ STAX institutional alpha) ───────────────────────
+# ─── TIER 2: CORE (+ STAX institutional alpha) ───────────────────────
 CORE_WATCHLIST = [
     "SNOW","MU","ASTS","ARM","QCOM","TTD","ACN","NVDA","AMZN","GOOGL",
     "GLXY",   # STAX verified: $500K block sweeps Jun 26 $31/$32 Calls — crypto infra momentum
@@ -405,9 +405,9 @@ class JECIOptionsBot:
             f"Consensus required: {CONSENSUS_REQUIRED}",
             f"  Agents online — Grok: {online['grok']}  Claude: {online['claude']}  "
             f"DeepSeek: {online['deepseek']}",
-            f"  Robyhood cap: ${SANDBOX_RULES['max_premium_dollars']:.0f}/trade · "
+            f"  Sandbox cap: ${SANDBOX_RULES['max_premium_dollars']:.0f}/trade · "
             f"4DTE min · spreads on SPY/XSP",
-            f"  TraderSurfer position cap: {CORE_RULES['max_position_pct']}% net liq",
+            f"  Core position cap: {CORE_RULES['max_position_pct']}% net liq",
             "═"*66,
         ]:
             log.info(line)
@@ -498,7 +498,7 @@ class JECIOptionsBot:
         chain    = self.tt.get_option_chain(sig.symbol)
         dte_override = (report.locks or {}).get("min_dte_override")
 
-        # Index symbols on Robyhood → spread compressor path
+        # Index symbols on Sandbox → spread compressor path
         is_spread = tier == "SANDBOX" and sig.symbol in rules.get("use_spreads_on", [])
         if is_spread:
             sp = build_spread(chain, sig, rules)

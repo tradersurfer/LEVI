@@ -44,7 +44,7 @@ AGENT_TIMEOUT = int(os.getenv("AGENT_TIMEOUT_SEC", "25"))
 
 @dataclass
 class TradeProposal:
-    account_tier:   str      # ROBYHOOD | TRADERSURFER
+    account_tier:   str      # SANDBOX | CORE
     symbol:         str
     direction:      str      # CALL | PUT
     option_symbol:  str
@@ -97,7 +97,7 @@ class RiskMoat:
                          f"0???3DTE theta traps are banned outright")
 
         # ?????? 2. Capital Allocation Rule ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-        if p.account_tier == "ROBYHOOD":
+        if p.account_tier == "SANDBOX":
             if p.total_cost > SANDBOX_MAX_PREMIUM_DOLLARS:
                 fails.append(f"SANDBOX CAP: total premium ${p.total_cost:.2f} > "
                              f"${SANDBOX_MAX_PREMIUM_DOLLARS:.2f} hard ceiling")
@@ -241,7 +241,7 @@ class DeepSeekRiskOfficer:
         prompt = (
             "You are the Chief Risk Officer. Cross-reference the proposed trade "
             "against the Master Risk Moat:\n"
-            f"- Sandbox (ROBYHOOD) max total premium per trade: ${SANDBOX_MAX_PREMIUM_DOLLARS:.0f}\n"
+            f"- Sandbox (SANDBOX) max total premium per trade: ${SANDBOX_MAX_PREMIUM_DOLLARS:.0f}\n"
             f"- Large account single-position max: {LARGE_ACCT_MAX_POSITION_PCT}% of net liq\n"
             f"- Mandatory {ABSOLUTE_MIN_DTE} DTE minimum buffer (0???3 DTE banned)\n"
             f"- Absolute lockout: 15m RSI < {RSI_SHORT_LOCKOUT} blocks shorts, "
@@ -394,7 +394,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # Smoke test the moat with a deliberately bad trade (1 DTE)
     bad = TradeProposal(
-        account_tier="ROBYHOOD", symbol="SPY", direction="CALL",
+        account_tier="SANDBOX", symbol="SPY", direction="CALL",
         option_symbol="SPY 260612C00750000", strike=750, dte=1,
         premium=1.50, quantity=2, net_liq=1200, rsi15=72,
         market_state="BULL_TRAP", state_locks={"bias_neutral": True},
