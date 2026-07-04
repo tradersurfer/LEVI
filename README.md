@@ -18,7 +18,7 @@ AI Options Intelligence Engine
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/Built%20by-JECI%20Group-1B365D?style=flat-square">
+<img src="https://img.shields.io/badge/Built%20by-JECI%20AI-1B365D?style=flat-square">
 <img src="https://img.shields.io/badge/Status-Production-success?style=flat-square">
 <img src="https://img.shields.io/badge/Paper%20Trading-Default-orange?style=flat-square">
 <img src="https://img.shields.io/badge/Consensus-3%2F3-blue?style=flat-square">
