@@ -33,8 +33,25 @@ from bot.consensus_engine import (
     ConsensusEngine, TradeProposal, RiskMoat,
     SANDBOX_MAX_PREMIUM_DOLLARS, LARGE_ACCT_MAX_POSITION_PCT,
 )
+from agents.scout import Scout as _Scout
+from agents.atlas import Atlas as _Atlas
+from agents.lens import Lens as _Lens
+
+# Module-level sub-agent singletons (instantiated once, reused every scan)
+SCOUT = _Scout()
+ATLAS = _Atlas()
+LENS  = _Lens()
 
 load_dotenv()
+
+# ── White-label config ────────────────────────────────────────────────────────
+import json as _json
+LEVI_CONFIG_PATH = os.getenv("LEVI_CONFIG_PATH", "./levi_config.json")
+try:
+    with open(LEVI_CONFIG_PATH) as _f:
+        LEVI_CONFIG = _json.load(_f)
+except FileNotFoundError:
+    LEVI_CONFIG = {}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,15 +72,15 @@ CONSENSUS_REQUIRED = os.getenv("CONSENSUS_REQUIRED", "true").lower() == "true"
 TT_USERNAME = os.getenv("TT_USERNAME", "")
 TT_PASSWORD = os.getenv("TT_PASSWORD", "")
 
-ACCT_TRADERSURFER = os.getenv("ACCT_TRADERSURFER", "")
-ACCT_ROBYHOOD     = os.getenv("ACCT_ROBYHOOD", "")
+ACCT_CORE = os.getenv("ACCT_CORE", "")
+ACCT_SANDBOX     = os.getenv("ACCT_SANDBOX", "")
 ACCT_HODL         = os.getenv("ACCT_HODL", "")
 
 BASE_URL = "https://api.cert.tastyworks.com" if PAPER else "https://api.tastyworks.com"
 
 # ─── TIER 1: ROBYHOOD ────────────────────────────────────────────────────────
-ROBYHOOD_WATCHLIST = ["CLSK","MARA","RIOT","HUT","QS","SOFI","RKLB","TWST","PHAR"]
-ROBYHOOD_RULES = {
+SANDBOX_WATCHLIST = ["CLSK","MARA","RIOT","HUT","QS","SOFI","RKLB","TWST","PHAR"]
+SANDBOX_RULES = {
     "max_alloc_pct":   15,
     "max_premium_dollars": SANDBOX_MAX_PREMIUM_DOLLARS,  # $150 hard ceiling per trade
     "min_dte":         4,
@@ -75,12 +92,12 @@ ROBYHOOD_RULES = {
 }
 
 # ─── TIER 2: TRADERSURFER (+ STAX institutional alpha) ───────────────────────
-TRADERSURFER_WATCHLIST = [
+CORE_WATCHLIST = [
     "SNOW","MU","ASTS","ARM","QCOM","TTD","ACN","NVDA","AMZN","GOOGL",
     "GLXY",   # STAX verified: $500K block sweeps Jun 26 $31/$32 Calls — crypto infra momentum
     "NOK",    # STAX verified: Sep 18 $15C + Jan 2027 $30C accumulation — near-zero theta (-0.0133)
 ]
-TRADERSURFER_RULES = {
+CORE_RULES = {
     "min_premium":      3.00,
     "max_premium":      20.00,
     "max_position_pct": LARGE_ACCT_MAX_POSITION_PCT,   # ~3.29% of net liq per position
@@ -135,8 +152,8 @@ class TastytradeSession:
         r = self.s.get(f"{BASE_URL}/customers/me/accounts")
         r.raise_for_status()
         nums = [i["account"]["account-number"] for i in r.json()["data"]["items"]]
-        for label, num in [("TRADERSURFER", ACCT_TRADERSURFER),
-                           ("ROBYHOOD", ACCT_ROBYHOOD), ("HODL", ACCT_HODL)]:
+        for label, num in [("CORE", ACCT_CORE),
+                           ("SANDBOX", ACCT_SANDBOX), ("HODL", ACCT_HODL)]:
             if num and num in nums:
                 self.accounts[label] = num
                 log.info(f"   {label}: {num}")
@@ -265,7 +282,7 @@ def generate_signal(symbol: str, tier: str) -> Signal:
     if p5d > 0.4:  cp += 1; cr.append(f"+{p5d:.1f}%/5d momentum")
     if p5d < -0.4: pp += 1; pr.append(f"{p5d:.1f}%/5d pressure")
 
-    need = 4 if tier == "ROBYHOOD" else 3
+    need = 4 if tier == "SANDBOX" else 3
     if cp >= need and cp >= pp:   d, pts, rs = "CALL", cp, cr
     elif pp >= need and pp > cp:  d, pts, rs = "PUT", pp, pr
     else:                          d, pts, rs = "NEUTRAL", 0, ["No clear edge"]
@@ -388,9 +405,9 @@ class JECIOptionsBot:
             f"Consensus required: {CONSENSUS_REQUIRED}",
             f"  Agents online — Grok: {online['grok']}  Claude: {online['claude']}  "
             f"DeepSeek: {online['deepseek']}",
-            f"  Robyhood cap: ${ROBYHOOD_RULES['max_premium_dollars']:.0f}/trade · "
+            f"  Robyhood cap: ${SANDBOX_RULES['max_premium_dollars']:.0f}/trade · "
             f"4DTE min · spreads on SPY/XSP",
-            f"  TraderSurfer position cap: {TRADERSURFER_RULES['max_position_pct']}% net liq",
+            f"  TraderSurfer position cap: {CORE_RULES['max_position_pct']}% net liq",
             "═"*66,
         ]:
             log.info(line)
@@ -436,10 +453,10 @@ class JECIOptionsBot:
         log.info(f"   {report.details}")
 
         # ── STEP 2: scan tiers under state locks ──────────────────────────────
-        for sym in TRADERSURFER_WATCHLIST:
-            self._handle("TRADERSURFER", sym, report)
-        for sym in ROBYHOOD_WATCHLIST:
-            self._handle("ROBYHOOD", sym, report)
+        for sym in CORE_WATCHLIST:
+            self._handle("CORE", sym, report)
+        for sym in SANDBOX_WATCHLIST:
+            self._handle("SANDBOX", sym, report)
         for sym in sum(HODL_WATCHLIST.values(), []):
             try:
                 sig = generate_signal(sym, "HODL")
@@ -457,7 +474,7 @@ class JECIOptionsBot:
             else:
                 if sym in self.stopped_out_today:
                     return   # averaging-down / revenge-entry ban for the day
-                need = "HIGH" if tier == "ROBYHOOD" else ("MED", "HIGH")
+                need = "HIGH" if tier == "SANDBOX" else ("MED", "HIGH")
                 sig  = generate_signal(sym, tier)
                 self._log_signal(sig)
                 ok_conf = sig.confidence == need if isinstance(need, str) else sig.confidence in need
@@ -476,13 +493,13 @@ class JECIOptionsBot:
         acct = self.tt.accounts.get(tier)
         if not acct:
             return
-        rules    = ROBYHOOD_RULES if tier == "ROBYHOOD" else TRADERSURFER_RULES
+        rules    = SANDBOX_RULES if tier == "SANDBOX" else CORE_RULES
         net_liq  = self.tt.get_balance(acct)
         chain    = self.tt.get_option_chain(sig.symbol)
         dte_override = (report.locks or {}).get("min_dte_override")
 
         # Index symbols on Robyhood → spread compressor path
-        is_spread = tier == "ROBYHOOD" and sig.symbol in rules.get("use_spreads_on", [])
+        is_spread = tier == "SANDBOX" and sig.symbol in rules.get("use_spreads_on", [])
         if is_spread:
             sp = build_spread(chain, sig, rules)
             if not sp:
@@ -494,7 +511,7 @@ class JECIOptionsBot:
                 log.warning(f"  No suitable option for {sig.symbol} ({tier})")
                 return
             # Spread compressor fallback: alpha contract too rich for the ceiling
-            if tier == "ROBYHOOD" and opt["mid"] > rules["max_premium"]:
+            if tier == "SANDBOX" and opt["mid"] > rules["max_premium"]:
                 sp = build_spread(chain, sig, rules)
                 if sp and sp["net_debit"] <= rules["max_premium"]:
                     log.info(f"  🛡  Premium ${opt['mid']:.2f} too rich — compressed to "
@@ -509,17 +526,21 @@ class JECIOptionsBot:
                 entry_px, opt_sym, dte = opt["mid"], opt["symbol"], opt["dte"]
 
         # ── position sizing under tier caps ───────────────────────────────────
-        if tier == "ROBYHOOD":
+        if tier == "SANDBOX":
             cap = min(net_liq * rules["max_alloc_pct"]/100, rules["max_premium_dollars"])
         else:
             cap = net_liq * rules["max_position_pct"]/100
         qty = max(1, int(cap / (entry_px * 100)))
-        if entry_px * 100 * qty > cap and qty == 1 and tier == "ROBYHOOD":
+        if entry_px * 100 * qty > cap and qty == 1 and tier == "SANDBOX":
             log.warning(f"  Even 1 contract (${entry_px*100:.0f}) exceeds "
                         f"${cap:.0f} cap — skip")
             return
 
-        # ── LAYER 0+1+2: Moat → Grok/Claude → DeepSeek CRO ────────────────────
+        # -- LEVI Sub-Agent Pre-Consensus Layer --------------------------------
+        scout_out = SCOUT.scan([sig.symbol])
+        atlas_out = ATLAS.analyze(sig.symbol)
+        lens_out  = LENS.analyze(sig.symbol)
+        # -- LAYER 0+1+2: Risk Moat -> SCOUT/ATLAS/LENS -> Tri-Agent Consensus -
         rsi15 = fetch_rsi15(sig.symbol)
         proposal = TradeProposal(
             account_tier=tier, symbol=sig.symbol, direction=sig.direction,
@@ -532,7 +553,16 @@ class JECIOptionsBot:
                    "rsi14_daily": sig.rsi14, "rsi15_intraday": rsi15,
                    "bb_upper": sig.bb_upper, "bb_lower": sig.bb_lower,
                    "pct_5d": sig.pct5d, "market_state": report.state.value,
-                   "local_signal": sig.direction, "confidence": sig.confidence}
+                   "local_signal": sig.direction, "confidence": sig.confidence,
+                   "x_sentiment":    scout_out["sentiment"],
+                   "x_confidence":   scout_out["confidence"],
+                   "x_signals":      scout_out["key_signals"],
+                   "macro_regime":   atlas_out["macro_regime"],
+                   "macro_bias":     atlas_out["trade_bias"],
+                   "catalysts":      atlas_out["catalysts_ahead"],
+                   "setup_quality":  lens_out["setup_quality"],
+                   "lens_confidence":lens_out["confidence"],
+                   "trace_triggered":lens_out["trace_triggered"]}
 
         if CONSENSUS_REQUIRED:
             result = self.consensus.evaluate(proposal, metrics)
@@ -580,7 +610,7 @@ class JECIOptionsBot:
     def _check_exit(self, key: str, report):
         trade = self.trades[key]
         tier  = key.split(":")[0]
-        rules = TRADERSURFER_RULES if tier == "TRADERSURFER" else ROBYHOOD_RULES
+        rules = CORE_RULES if tier == "CORE" else SANDBOX_RULES
         try:
             q   = self.tt.get_quote(trade.option_symbol)
             bid = float(q.get("bid", 0) or 0); ask = float(q.get("ask", 0) or 0)
@@ -602,7 +632,7 @@ class JECIOptionsBot:
 
             hit_t = mid >= trade.target
             hit_s = mid <= trade.stop
-            dead  = tier == "TRADERSURFER" and mid <= trade.entry*0.01
+            dead  = tier == "CORE" and mid <= trade.entry*0.01
 
             # ── Patience Matrix: in flush/recovery, DTE>=60 stops become alerts ─
             patience = (report.locks or {}).get("patience_matrix") or \

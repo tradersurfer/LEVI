@@ -25,7 +25,7 @@ def _start_bot():
     if os.getenv("RUN_BOT", "false").lower() != "true":
         log.info("RUN_BOT=false — API-only mode")
         return
-    from bot.jeci_options_bot import JECIOptionsBot
+    from bot.levi_bot import JECIOptionsBot
     bot = JECIOptionsBot()
     bot._shared = _shared          # inject shared state reference
     threading.Thread(target=bot.start, daemon=True).start()
