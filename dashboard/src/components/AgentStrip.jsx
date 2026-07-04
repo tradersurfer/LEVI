@@ -1,7 +1,7 @@
 const AGENTS = [
   { name: 'Grok',   role: 'Sentiment & Momentum',   schema: '{ sentiment_score: -1.0…1.0 }' },
   { name: 'Claude', role: 'Technical Chart Analyst', schema: '{ technical_bias: BUY|SELL|NEUTRAL }' },
-  { name: 'Gemini', role: 'Chief Risk Officer',      schema: '{ verdict: APPROVED|REJECTED }' },
+  { name: 'DeepSeek', role: 'Chief Risk Officer',   schema: '{ verdict: APPROVED|REJECTED }' },
 ]
 
 export default function AgentStrip() {

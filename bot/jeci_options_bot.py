@@ -8,7 +8,7 @@
 ║                                                                  ║
 ║  NEW IN v2 (merged from live-tape session):                      ║
 ║   · Market State Engine  — Bull Trap / Waterfall / V-Bottom     ║
-║   · Tri-Agent Consensus  — Grok + Claude + Gemini, 3/3 vote     ║
+║   · Tri-Agent Consensus  — Grok + Claude + DeepSeek, 3/3 vote   ║
 ║   · Master Risk Moat     — programmatic, runs before any LLM    ║
 ║   · Averaging-down ban   + daily re-entry blocklist after stops ║
 ║   · Patience Matrix      — no panic stops on DTE>=60 in flush   ║
@@ -387,7 +387,7 @@ class JECIOptionsBot:
             f"  Mode: {'PAPER' if PAPER else '🔴 LIVE'}   Auto-execute: {AUTO_EXECUTE}   "
             f"Consensus required: {CONSENSUS_REQUIRED}",
             f"  Agents online — Grok: {online['grok']}  Claude: {online['claude']}  "
-            f"Gemini: {online['gemini']}",
+            f"DeepSeek: {online['deepseek']}",
             f"  Robyhood cap: ${ROBYHOOD_RULES['max_premium_dollars']:.0f}/trade · "
             f"4DTE min · spreads on SPY/XSP",
             f"  TraderSurfer position cap: {TRADERSURFER_RULES['max_position_pct']}% net liq",
@@ -519,7 +519,7 @@ class JECIOptionsBot:
                         f"${cap:.0f} cap — skip")
             return
 
-        # ── LAYER 0+1+2: Moat → Grok/Claude → Gemini CRO ──────────────────────
+        # ── LAYER 0+1+2: Moat → Grok/Claude → DeepSeek CRO ────────────────────
         rsi15 = fetch_rsi15(sig.symbol)
         proposal = TradeProposal(
             account_tier=tier, symbol=sig.symbol, direction=sig.direction,

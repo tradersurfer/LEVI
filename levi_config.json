@@ -1,0 +1,53 @@
+{
+  "agent_name": "LEVI",
+  "operator": "JECI Group",
+  "tiers": [
+    {
+      "id": "sandbox",
+      "name": "Sandbox",
+      "description": "Small account, learning mode",
+      "account_env": "ACCT_SANDBOX",
+      "max_premium_per_trade": 150.00,
+      "max_position_pct": 2.0,
+      "zero_dte_enabled": false,
+      "alerts_only": false,
+      "swing_enabled": true,
+      "long_hold_alerts": false
+    },
+    {
+      "id": "core",
+      "name": "Core",
+      "description": "Primary trading account",
+      "account_env": "ACCT_CORE",
+      "max_premium_per_trade": 500.00,
+      "max_position_pct": 3.29,
+      "zero_dte_enabled": true,
+      "alerts_only": false,
+      "swing_enabled": true,
+      "long_hold_alerts": true
+    },
+    {
+      "id": "hodl",
+      "name": "HODL",
+      "description": "Family/long-term — alerts only, never auto-trades",
+      "account_env": "ACCT_HODL",
+      "max_premium_per_trade": 0,
+      "max_position_pct": 0,
+      "zero_dte_enabled": false,
+      "alerts_only": true,
+      "swing_enabled": false,
+      "long_hold_alerts": true
+    }
+  ],
+  "consensus": {
+    "required": true,
+    "timeout_sec": 25,
+    "agents": {
+      "grok": { "model": "grok-4", "role": "macro_fundamental" },
+      "claude": { "model": "claude-sonnet-4-5", "role": "technical_reasoning" },
+      "deepseek": { "model": "deepseek/deepseek-r1", "role": "risk_verification" }
+    }
+  },
+  "market_hours_only": true,
+  "scan_interval_sec": 300
+}
