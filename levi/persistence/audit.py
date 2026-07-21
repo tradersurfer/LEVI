@@ -5,11 +5,14 @@ from typing import Any
 from .repositories import AuditRepository
 
 
-SENSITIVE_KEYS = {"password", "token", "access_token", "refresh_token", "secret"}
+SENSITIVE_KEYS = {"password", "token", "access_token", "refresh_token", "secret", "encryption_key"}
 
 
 def sanitize(details: dict[str, Any]) -> dict[str, Any]:
-    return {key: ("[REDACTED]" if key.lower() in SENSITIVE_KEYS else value) for key, value in details.items()}
+    return {
+        key: ("[REDACTED]" if key.lower() in SENSITIVE_KEYS or key.lower().endswith("_encryption_key") else value)
+        for key, value in details.items()
+    }
 
 
 def record_audit(repository: AuditRepository, *, user_id: str, action: str,
