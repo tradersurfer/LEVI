@@ -26,11 +26,19 @@ from levi.evidence.parsers import (
 )
 from levi.evidence.storage import EncryptedFilesystemStorage, StorageConfigurationError
 from levi.workspace.initializer import load_user_profile
+from levi.auth.api import router as auth_router
+from levi.auth.service import AuthService
+from levi.auth.supabase import SupabaseAuthAdapter
 
 log = logging.getLogger("JECI.api")
 
 app = FastAPI(title="JECI Status API", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.include_router(auth_router)
+
+# Phase 6 is opt-in so existing deployments and paper/alert behavior are unchanged.
+if os.getenv("LEVI_AUTH_ENABLED", "false").lower() == "true":
+    app.state.auth_service = AuthService(SupabaseAuthAdapter())
 
 # shared state written by the bot, read by the API
 _shared: dict = {"report": None, "signals": {}, "trades": [], "blocklist": []}
