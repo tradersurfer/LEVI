@@ -4,16 +4,27 @@ Bot loop runs as a background thread when RUN_BOT=true.
 """
 
 from __future__ import annotations
-import os, threading, logging
+import os, threading, logging, tempfile
+from pathlib import Path
 from datetime import datetime, timezone
 from dataclasses import asdict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from levi.contracts.what_you_need import build_what_you_need
 from levi.evidence.registry import EvidenceRegistry
+from levi.evidence.models import EvidenceType
+from levi.evidence.ingestion.uploader import (
+    EvidenceIngestionService, EvidenceUploadRequest, UnsupportedEvidenceError,
+    UploadSizeError, UploadValidationError,
+)
+from levi.evidence.parsers import (
+    ChartParser, CsvEvidenceParser, ExcelEvidenceParser, ParserValidationError,
+    PdfEvidenceParser, ScreenshotParser,
+)
+from levi.evidence.storage import EncryptedFilesystemStorage, StorageConfigurationError
 from levi.workspace.initializer import load_user_profile
 
 log = logging.getLogger("JECI.api")
@@ -106,6 +117,95 @@ def what_you_need(request: WhatYouNeedRequest):
         request_type=request.request_type,
         ticker=request.ticker,
     )
+
+
+def _ingestion_service() -> EvidenceIngestionService:
+    return EvidenceIngestionService(
+        registry=evidence_registry,
+        storage=EncryptedFilesystemStorage(),
+        parsers=[
+            ChartParser(), ScreenshotParser(), CsvEvidenceParser(),
+            ExcelEvidenceParser(), PdfEvidenceParser(),
+        ],
+    )
+
+
+@app.post("/api/evidence/upload", status_code=status.HTTP_201_CREATED)
+async def upload_evidence(
+    user_id: str = Form(...),
+    source_name: str = Form(...),
+    file: UploadFile = File(...),
+    declared_evidence_type: str | None = Form(None),
+    captured_at: str | None = Form(None),
+):
+    try:
+        load_user_profile(user_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="user workspace/profile not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        declared = EvidenceType(declared_evidence_type) if declared_evidence_type else None
+        captured = datetime.fromisoformat(captured_at.replace("Z", "+00:00")) if captured_at else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid evidence type or captured_at") from exc
+
+    filename = file.filename or ""
+    suffix = Path(filename).suffix.lower()
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temporary:
+            temporary_path = Path(temporary.name)
+            total = 0
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > 25 * 1024 * 1024:
+                    raise UploadSizeError("upload exceeds the maximum accepted size")
+                temporary.write(chunk)
+        result = _ingestion_service().ingest(EvidenceUploadRequest(
+            user_id=user_id,
+            source_name=source_name,
+            original_filename=filename,
+            mime_type=file.content_type or "application/octet-stream",
+            temporary_file_path=temporary_path,
+            declared_evidence_type=declared,
+            captured_at=captured,
+        ))
+    except UploadSizeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except UnsupportedEvidenceError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except UploadValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ParserValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StorageConfigurationError as exc:
+        log.error("Evidence storage is not safely configured")
+        raise HTTPException(status_code=500, detail="evidence storage is not safely configured") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error("Evidence ingestion failed safely (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="evidence ingestion failed safely") from exc
+    finally:
+        await file.close()
+        if temporary_path and temporary_path.exists():
+            temporary_path.unlink()
+
+    record = result.evidence_record
+    return {
+        "evidence_id": record.evidence_id,
+        "user_id": record.user_id,
+        "evidence_type": record.evidence_type.value,
+        "source_name": record.source_name,
+        "filename": record.filename,
+        "ticker_symbols": record.ticker_symbols,
+        "timeframe": record.timeframe,
+        "confidence": record.confidence,
+        "warnings": record.warnings,
+        "stored": True,
+        "encrypted": result.stored_file.encrypted,
+    }
 
 
 if __name__ == "__main__":

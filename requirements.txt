@@ -3,6 +3,12 @@ python-dotenv
 schedule
 fastapi
 pydantic>=2
+cryptography
+Pillow
+openpyxl
+xlrd
+pypdf
+python-multipart
 uvicorn[standard]
 pytest
 anthropic
