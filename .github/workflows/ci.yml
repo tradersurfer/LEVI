@@ -33,6 +33,43 @@ jobs:
       - name: Build container
         run: docker build -t levi:${{ github.sha }} .
 
+      - name: Start container
+        run: docker run -d --name levi-ci -p 8000:8000 levi:${{ github.sha }}
+
+      - name: Wait for startup
+        run: sleep 5
+
+      - name: Check /health
+        run: curl -f http://localhost:8000/health
+
+      - name: Check /ready
+        run: curl -f http://localhost:8000/ready
+
+      - name: Verify non-root user
+        run: |
+          USER=$(docker exec levi-ci whoami)
+          echo "Container running as: $USER"
+          if [ "$USER" != "levi" ]; then
+            echo "FAIL: expected user 'levi', got '$USER'"
+            exit 1
+          fi
+
+      - name: Verify no secrets in image
+        run: |
+          MATCHES=$(docker run --rm levi:${{ github.sha }} sh -c 'find / -xdev \( -name ".env" -o -name ".git" -o -path "*/workspace/*" \) 2>/dev/null || true')
+          if [ -n "$MATCHES" ]; then
+            echo "FAIL: found excluded paths in image:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "No excluded paths found in image"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop levi-ci || true
+          docker rm levi-ci || true
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
