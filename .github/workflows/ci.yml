@@ -65,7 +65,7 @@ jobs:
           test "$container_user" = "levi"
           echo "PASS: container user is levi"
 
-          matches="$(docker run --rm levi:${{ github.sha }} find / -xdev \( -name '.env' -o -name '.git' -o -path '*/workspace/*' \) 2>/dev/null || true)"
+          matches="$(docker run --rm levi:${{ github.sha }} find / -xdev \( -name '.env' -o -name '.git' -o -path '/app/workspace/*' \) 2>/dev/null || true)"
           if [ -n "$matches" ]; then
             echo "FAIL: sensitive build-context content found in image"
             echo "$matches"
