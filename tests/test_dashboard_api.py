@@ -11,9 +11,14 @@ from bot.status_api import _shared, app, evidence_registry
 from levi.dashboard.service import DashboardService
 from levi.dashboard.models import DashboardSummary, DecisionListResponse
 from levi.dashboard.routes import build_dashboard_router
+from levi.agents.consensus import ConsensusEngine
+from levi.agents.models import AgentVerdict
 from levi.evidence.models import EvidenceRecord, EvidenceType
 from levi.profiles.models import UserTradingProfile
 from levi.workspace.initializer import initialize_user_workspace
+from tests.auth_helpers import FakeAuthProvider
+from tests.phase4_helpers import agent_decision, guardian
+from levi.auth.service import AuthService
 
 
 @pytest.fixture
@@ -26,6 +31,7 @@ def profile(tmp_path, monkeypatch):
     initialize_user_workspace(value)
     for key in ("trades", "positions", "decisions", "alerts"):
         _shared[key] = []
+    _shared.pop("consensus_decision", None)
     evidence_registry._records.clear()
     yield value
     evidence_registry._records.clear()
@@ -105,7 +111,9 @@ def test_decisions_endpoint_exposes_agent_verdict_shape(client):
 
 
 def test_three_approvals_produce_approved_consensus(client):
-    _shared["decisions"] = [{"user_id": "dash-user", "agent_name": name, "verdict": "approve"} for name in ("SCOUT", "ATLAS", "LENS")]
+    decisions = tuple(agent_decision(name, user="dash-user") for name in ("SCOUT", "ATLAS", "LENS"))
+    _shared["decisions"] = list(decisions)
+    _shared["consensus_decision"] = ConsensusEngine().evaluate(user_id="dash-user", symbol="SPY", decisions=decisions, guardian=guardian())
     assert endpoint(client, "decisions").json()["consensus"]["approved"] is True
 
 
@@ -117,6 +125,25 @@ def test_two_approvals_do_not_produce_consensus(client):
 def test_rejection_does_not_produce_consensus(client):
     _shared["decisions"] = [{"user_id": "dash-user", "verdict": value} for value in ("approve", "reject", "approve")]
     assert endpoint(client, "decisions").json()["consensus"]["approved"] is False
+
+def test_real_agent_consensus_contract_reaches_dashboard(client):
+    decisions = tuple(agent_decision(name, AgentVerdict.BEARISH, user="dash-user") for name in ("SCOUT", "ATLAS", "LENS"))
+    consensus = ConsensusEngine().evaluate(user_id="dash-user", symbol="SPY", decisions=decisions, guardian=guardian())
+    _shared["decisions"] = list(decisions)
+    _shared["consensus_decision"] = consensus
+    body = endpoint(client, "decisions").json()
+    assert body["consensus"]["approved"] is True
+    assert body["consensus"]["decision"] == "bearish"
+    assert body["decisions"][0]["decision_id"] and body["decisions"][0]["verdict"] == "bearish"
+
+def test_dashboard_requires_matching_identity_when_auth_enabled(client, monkeypatch):
+    monkeypatch.setenv("LEVI_AUTH_ENABLED", "true")
+    app.state.auth_service = AuthService(FakeAuthProvider())
+    try:
+        assert endpoint(client, "summary").status_code == 401
+        assert client.get("/api/dashboard/summary", params={"user_id": "dash-user"}, headers={"Authorization": "Bearer token"}).status_code == 403
+    finally:
+        del app.state.auth_service
 
 
 def test_decisions_filter_another_user(client):

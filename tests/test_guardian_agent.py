@@ -11,5 +11,6 @@ def test_guardian_enforces_loss_limit(): assert not assess(daily_loss_pct=3).all
 def test_guardian_enforces_buying_power(): assert not assess(maximum_loss=6000).allowed
 def test_guardian_blocks_market_order(): assert "market orders are prohibited" in assess(order_type="market").violations
 def test_guardian_blocks_stale_quote(): assert "fresh quote required" in assess(quote_age_seconds=30).violations
+def test_guardian_uses_three_second_options_freshness(): assert "fresh quote required" in assess(quote_age_seconds=4).violations
 def test_guardian_blocks_averaging_down(): assert not assess(averaging_down=True).allowed
 def test_guardian_requires_approval(): assert not assess(approval_reference=None).allowed

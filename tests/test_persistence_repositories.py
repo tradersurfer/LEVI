@@ -39,3 +39,7 @@ def test_owner_delete_succeeds(session):
 def test_audit_redacts_secret_values(session):
     record=record_audit(AuditRepository(session),user_id="u1",action="login",entity_type="session",details={"access_token":"secret","safe":"ok"})
     assert record.details == {"access_token":"[REDACTED]","safe":"ok"}
+
+def test_audit_redacts_evidence_encryption_keys(session):
+    record=record_audit(AuditRepository(session),user_id="u1",action="configure",entity_type="evidence",details={"encryption_key":"one","LEVI_EVIDENCE_ENCRYPTION_KEY":"two","safe":"ok"})
+    assert record.details == {"encryption_key":"[REDACTED]","LEVI_EVIDENCE_ENCRYPTION_KEY":"[REDACTED]","safe":"ok"}

@@ -14,7 +14,8 @@ class GuardianRules:
         if r.order_type.lower()!="limit": v.append("market orders are prohibited")
         if r.limit_price is None or r.limit_price<=0: v.append("valid limit price required")
         if r.quote_validation is None or not r.quote_validation.is_valid: v.append("valid quote required")
-        if r.quote_age_seconds is None or r.quote_age_seconds>15: v.append("fresh quote required")
+        maximum_quote_age = 3 if p.instrument_type is InstrumentType.OPTIONS else 15
+        if r.quote_age_seconds is None or r.quote_age_seconds>maximum_quote_age: v.append("fresh quote required")
         valid_combo=(p.trading_mode in {TradingMode.DAY_TRADING,TradingMode.SWING_TRADING} and p.instrument_type in {InstrumentType.OPTIONS,InstrumentType.POLYMARKET}) or (p.trading_mode is TradingMode.INVESTING_HOLDING and p.instrument_type is InstrumentType.STOCKS)
         if not valid_combo: v.append("unsupported trading mode and instrument combination")
         if r.maximum_loss>r.buying_power: v.append("insufficient buying power")

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
+from enum import Enum
+from collections.abc import Mapping
 from typing import Any
 
 from levi.evidence.registry import EvidenceRegistry
@@ -11,6 +14,20 @@ from levi.profiles.models import UserTradingProfile
 
 def _iso(value: Any) -> str | None:
     return value.isoformat() if isinstance(value, datetime) else value
+
+
+def _json_safe(value: Any) -> Any:
+    if is_dataclass(value):
+        value = {field.name: getattr(value, field.name) for field in fields(value)}
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, Mapping):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 class DashboardService:
@@ -80,19 +97,21 @@ class DashboardService:
 
     def decisions(self, user_id: str) -> dict[str, Any]:
         decisions = [
-            dict(item) for item in self.shared.get("decisions", [])
-            if item.get("user_id") == user_id
+            _json_safe(item) for item in self.shared.get("decisions", [])
+            if _json_safe(item).get("user_id") == user_id
         ]
-        votes = [str(item.get("verdict", item.get("decision", "pending"))).lower() for item in decisions]
-        approved = len(votes) >= 3 and all(vote in {"approve", "approved", "yes"} for vote in votes[:3])
+        consensus = _json_safe(self.shared.get("consensus_decision"))
+        if not isinstance(consensus, dict) or consensus.get("user_id") != user_id:
+            consensus = None
+        approved = bool(consensus and consensus.get("approved"))
         return {
             "user_id": user_id,
             "decisions": decisions,
             "consensus": {
-                "decision": "approved" if approved else "not_approved",
+                "decision": consensus["verdict"] if consensus else "not_approved",
                 "approved": approved,
                 "votes_required": 3,
-                "votes_received": len(votes),
+                "votes_received": len(decisions),
             },
             "required_votes": 3,
         }
