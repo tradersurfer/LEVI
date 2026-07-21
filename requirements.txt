@@ -9,6 +9,7 @@ openpyxl
 xlrd
 pypdf
 python-multipart
+tzdata
 uvicorn[standard]
 pytest
 anthropic
