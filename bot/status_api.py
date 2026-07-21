@@ -15,22 +15,25 @@ from pydantic import BaseModel
 
 from levi.contracts.what_you_need import build_what_you_need
 from levi.evidence.registry import EvidenceRegistry
-from levi.evidence.models import EvidenceType
-from levi.evidence.ingestion.uploader import (
-    EvidenceIngestionService, EvidenceUploadRequest, UnsupportedEvidenceError,
-    UploadSizeError, UploadValidationError,
-)
-from levi.evidence.parsers import (
-    ChartParser, CsvEvidenceParser, ExcelEvidenceParser, ParserValidationError,
-    PdfEvidenceParser, ScreenshotParser,
-)
-from levi.evidence.storage import EncryptedFilesystemStorage, StorageConfigurationError
 from levi.workspace.initializer import load_user_profile
+from levi.deployment.environment import validate_environment
 
 log = logging.getLogger("JECI.api")
 
-app = FastAPI(title="JECI Status API", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app = FastAPI(title="LEVI API", version="0.1.0-alpha")
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "LEVI_CORS_ORIGINS", "http://localhost:3000,http://localhost:5173"
+    ).split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 # shared state written by the bot, read by the API
 _shared: dict = {"report": None, "signals": {}, "trades": [], "blocklist": []}
@@ -57,7 +60,26 @@ def _start_bot():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "ts": datetime.now(timezone.utc).isoformat()}
+    return {
+        "status": "healthy",
+        "version": app.version,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/ready")
+def ready():
+    validation = validate_environment()
+    if not validation.valid:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "not_ready", "errors": list(validation.errors)},
+        )
+    return {
+        "status": "ready",
+        "version": app.version,
+        "warnings": list(validation.warnings),
+    }
 
 
 @app.get("/state")
@@ -119,7 +141,14 @@ def what_you_need(request: WhatYouNeedRequest):
     )
 
 
-def _ingestion_service() -> EvidenceIngestionService:
+def _ingestion_service():
+    from levi.evidence.ingestion.uploader import EvidenceIngestionService
+    from levi.evidence.parsers import (
+        ChartParser, CsvEvidenceParser, ExcelEvidenceParser,
+        PdfEvidenceParser, ScreenshotParser,
+    )
+    from levi.evidence.storage import EncryptedFilesystemStorage
+
     return EvidenceIngestionService(
         registry=evidence_registry,
         storage=EncryptedFilesystemStorage(),
@@ -138,6 +167,14 @@ async def upload_evidence(
     declared_evidence_type: str | None = Form(None),
     captured_at: str | None = Form(None),
 ):
+    from levi.evidence.models import EvidenceType
+    from levi.evidence.ingestion.uploader import (
+        EvidenceUploadRequest, UnsupportedEvidenceError,
+        UploadSizeError, UploadValidationError,
+    )
+    from levi.evidence.parsers import ParserValidationError
+    from levi.evidence.storage import StorageConfigurationError
+
     try:
         load_user_profile(user_id)
     except FileNotFoundError as exc:

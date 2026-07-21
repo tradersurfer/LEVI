@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.venv
+__pycache__
+.pytest_cache
+*.pyc
+*.log
+dashboard/node_modules
+dashboard/dist
+tests
+workspace
+PHASE_*_IMPLEMENTATION_REPORT.md

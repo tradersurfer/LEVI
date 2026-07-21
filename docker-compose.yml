@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      LEVI_ENV: development
+      LEVI_WORKSPACE_ROOT: /app/workspace
+      DATABASE_URL: postgresql://levi:levi@postgres:5432/levi
+      RUN_BOT: "false"
+      AUTO_EXECUTE: "false"
+    volumes:
+      - levi_workspace:/app/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: levi
+      POSTGRES_USER: levi
+      POSTGRES_PASSWORD: levi
+    volumes:
+      - levi_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U levi -d levi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  levi_workspace:
+  levi_postgres:

@@ -28,9 +28,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    refresh()
+    const initial = setTimeout(refresh, 0)
     const id = setInterval(refresh, 60_000)
-    return () => clearInterval(id)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(id)
+    }
   }, [refresh])
 
   return (
