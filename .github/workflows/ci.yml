@@ -54,9 +54,23 @@ jobs:
             exit 1
           fi
 
+      - name: Verify runtime workspace is empty
+        run: |
+          if ! docker exec levi-ci test -d /app/workspace; then
+            echo "FAIL: expected runtime workspace directory /app/workspace"
+            exit 1
+          fi
+          WORKSPACE_CONTENTS=$(docker exec levi-ci find /app/workspace -mindepth 1 -print -quit)
+          if [ -n "$WORKSPACE_CONTENTS" ]; then
+            echo "FAIL: fresh image contains runtime workspace data:"
+            echo "$WORKSPACE_CONTENTS"
+            exit 1
+          fi
+          echo "Runtime workspace /app/workspace exists and is empty"
+
       - name: Verify no secrets in image
         run: |
-          MATCHES=$(docker run --rm levi:${{ github.sha }} sh -c 'find / -xdev \( -name ".env" -o -name ".git" -o -path "*/workspace/*" \) 2>/dev/null || true')
+          MATCHES=$(docker run --rm levi:${{ github.sha }} sh -c 'find / -xdev \( -name ".env" -o -name ".git" -o -path "/app/workspace/*" \) 2>/dev/null || true')
           if [ -n "$MATCHES" ]; then
             echo "FAIL: found excluded paths in image:"
             echo "$MATCHES"
