@@ -20,6 +20,7 @@ from levi.auth.api import router as auth_router
 from levi.auth.service import AuthService
 from levi.auth.supabase import SupabaseAuthAdapter
 from levi.deployment.environment import validate_environment
+from levi.dashboard import DashboardService, build_dashboard_router
 
 log = logging.getLogger("JECI.api")
 
@@ -44,8 +45,21 @@ if os.getenv("LEVI_AUTH_ENABLED", "false").lower() == "true":
     app.state.auth_service = AuthService(SupabaseAuthAdapter())
 
 # shared state written by the bot, read by the API
-_shared: dict = {"report": None, "signals": {}, "trades": [], "blocklist": []}
+_shared: dict = {
+    "report": None, "signals": {}, "trades": [], "blocklist": [],
+    "positions": [], "decisions": [], "alerts": [],
+}
 evidence_registry = EvidenceRegistry()
+
+
+def _dashboard() -> DashboardService:
+    return DashboardService(shared=_shared, registry=evidence_registry)
+
+
+app.include_router(build_dashboard_router(
+    service_factory=_dashboard,
+    profile_loader=load_user_profile,
+))
 
 
 class WhatYouNeedRequest(BaseModel):

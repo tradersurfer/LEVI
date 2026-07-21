@@ -1,29 +1,35 @@
-import { useState, useEffect, useCallback } from 'react'
-import StateBanner from './components/StateBanner'
-import AgentStrip from './components/AgentStrip'
-import TierTable from './components/TierTable'
-import TradesPanel from './components/TradesPanel'
+import { useCallback, useEffect, useState } from 'react'
+import { fetchDashboard } from './api/client'
+import { fixtureDashboard } from './api/fixtures'
+import Alerts from './components/Alerts'
+import EvidenceViewer from './components/EvidenceViewer'
+import SetupWizard from './components/SetupWizard'
+import SpecialistPanel from './components/SpecialistPanel'
+import StatePanel from './components/StatePanel'
+import TradeJournal from './components/TradeJournal'
+import ErrorState from './components/ErrorState'
+import LoadingState from './components/LoadingState'
 import './App.css'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const DEFAULT_USER = import.meta.env.VITE_LEVI_USER_ID || 'demo'
 
 export default function App() {
-  const [state,   setState]   = useState(null)
-  const [signals, setSignals] = useState({})
-  const [trades,  setTrades]  = useState({ open_trades: [], blocklist: [] })
-  const [lastRefresh, setLastRefresh] = useState(null)
+  const [data, setData] = useState(fixtureDashboard)
+  const [status, setStatus] = useState('fixture')
+  const [updated, setUpdated] = useState(null)
+  const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
+    setStatus('loading')
     try {
-      const [s, sig, t] = await Promise.all([
-        fetch(`${API}/state`).then(r => r.json()),
-        fetch(`${API}/signals`).then(r => r.json()),
-        fetch(`${API}/trades`).then(r => r.json()),
-      ])
-      setState(s); setSignals(sig); setTrades(t)
-      setLastRefresh(new Date().toLocaleTimeString())
-    } catch (e) {
-      console.error('Refresh failed', e)
+      setData(await fetchDashboard(DEFAULT_USER))
+      setStatus('live')
+      setError('')
+      setUpdated(new Date().toLocaleTimeString())
+    } catch {
+      setData(fixtureDashboard)
+      setStatus('fixture')
+      setError('Live API unavailable. Showing clearly labelled fixture data.')
     }
   }, [])
 
@@ -36,23 +42,21 @@ export default function App() {
     }
   }, [refresh])
 
-  return (
-    <div className="app">
-      <header className="header">
-        <span className="logo">JECI Trading Suite v2</span>
-        <div className="header-right">
-          {lastRefresh && <span className="refresh-ts">Last refresh {lastRefresh}</span>}
-          <button className="btn-refresh" onClick={refresh}>↻ Refresh</button>
-        </div>
-      </header>
-      <StateBanner report={state} />
-      <AgentStrip />
-      <section className="tiers">
-        {['TRADERSURFER', 'ROBYHOOD', 'HODL'].map(tier => (
-          <TierTable key={tier} tier={tier} signals={signals[tier] || []} />
-        ))}
-      </section>
-      <TradesPanel trades={trades.open_trades} blocklist={trades.blocklist} />
+  return <main className="app-shell">
+    <header className="topbar">
+      <div><span className="wordmark">LEVI</span><span className="product-name">Trading intelligence</span></div>
+      <div className="top-actions"><span className={`connection ${status}`}>{status === 'live' ? 'Live API' : status === 'loading' ? 'Refreshing' : 'Fixture preview'}</span>{updated && <span className="timestamp">Updated {updated}</span>}<button onClick={refresh}>Refresh</button></div>
+    </header>
+    {status === 'loading' && <LoadingState />}
+    {error && <ErrorState message={error} />}
+    <div className="dashboard-grid">
+      <div className="wide"><StatePanel summary={data.summary} positions={data.positions?.positions} /></div>
+      <div className="span-8"><TradeJournal trades={data.trades?.trades} /></div>
+      <div className="span-4"><Alerts alerts={data.alerts?.alerts} /></div>
+      <div className="wide"><SpecialistPanel decisions={data.decisions?.decisions} consensus={data.decisions?.consensus} /></div>
+      <div className="span-7"><EvidenceViewer evidence={data.evidence?.evidence} /></div>
+      <div className="span-5"><SetupWizard setup={data.setup_status} /></div>
     </div>
-  )
+    <footer>Paper trading by default · Evidence first · No automatic execution</footer>
+  </main>
 }
