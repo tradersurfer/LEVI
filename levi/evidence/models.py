@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -23,12 +23,6 @@ class EvidenceType(str, Enum):
     TRADE_JOURNAL = "trade_journal"
     TEXT_NOTE = "text_note"
     LIVE_FEED = "live_feed"
-
-
-class ParsedEvidence(BaseModel):
-    evidence_id: str
-    payload: dict[str, Any] = Field(default_factory=dict)
-    warnings: list[str] = Field(default_factory=list)
 
 
 class EvidenceRecord(BaseModel):
@@ -50,9 +44,9 @@ class EvidenceRecord(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class EvidenceParser(Protocol):
-    def supports(self, evidence: EvidenceRecord) -> bool:
-        ...
-
-    def parse(self, evidence: EvidenceRecord) -> ParsedEvidence:
-        ...
+def __getattr__(name: str):
+    """Keep Phase 1 parser import names available without a circular import."""
+    if name in {"EvidenceParser", "ParsedEvidence"}:
+        from levi.evidence.parsers.base import EvidenceParser, ParsedEvidence
+        return {"EvidenceParser": EvidenceParser, "ParsedEvidence": ParsedEvidence}[name]
+    raise AttributeError(name)

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from levi.evidence.models import EvidenceRecord, EvidenceType
 from levi.evidence.registry import EvidenceRegistry
@@ -20,10 +22,23 @@ class WhatYouNeed:
     can_proceed: bool
 
 
-def _items_from_evidence(evidence: EvidenceRecord) -> set[str]:
-    items = {str(item) for item in evidence.metadata.get("evidence_items", [])}
+STRICT_STRUCTURED_ITEMS = {"options chain", "current spot", "timestamp"}
+
+
+def _items_from_evidence(
+    evidence: EvidenceRecord, *, now: datetime | None = None,
+) -> set[str]:
+    items = {
+        str(item) for item in evidence.metadata.get("evidence_items", [])
+        if str(item) not in STRICT_STRUCTURED_ITEMS
+    }
     if evidence.evidence_type is EvidenceType.LIVE_FEED:
-        items.update({"current spot", "timestamp", "volume"})
+        observed_at = evidence.captured_at or evidence.uploaded_at
+        current_time = now or datetime.now(timezone.utc)
+        if observed_at.tzinfo is None:
+            observed_at = observed_at.replace(tzinfo=timezone.utc)
+        if current_time - observed_at <= timedelta(minutes=15):
+            items.update({"current spot", "timestamp", "volume"})
     elif evidence.evidence_type is EvidenceType.OPTIONS_CHAIN:
         items.update({"options chain", "expiration"})
     elif evidence.evidence_type is EvidenceType.PORTFOLIO_EXPORT:
@@ -50,6 +65,7 @@ def build_what_you_need(
     ticker: str | None = None,
 ) -> WhatYouNeed:
     policy = resolve_mode_policy(profile)
+    confidence_threshold = float(os.getenv("LEVI_EVIDENCE_CONFIDENCE_THRESHOLD", "0.70"))
     available = {"trading mode", "risk profile"}
     if profile.account_value >= 0:
         available.add("account value")
@@ -59,18 +75,28 @@ def build_what_you_need(
         available.add("ticker")
 
     user_records = registry.by_user(profile.user_id)
-    records = [
-        evidence for evidence in user_records
-        if not ticker
-        or not evidence.ticker_symbols
-        or ticker.upper() in {symbol.upper() for symbol in evidence.ticker_symbols}
-    ]
-    for evidence in records:
-        available.update(_items_from_evidence(evidence))
+    low_confidence: list[str] = []
+    for evidence in user_records:
+        ticker_sensitive = evidence.evidence_type in {
+            EvidenceType.CHART, EvidenceType.GRAPH, EvidenceType.OPTIONS_CHAIN,
+            EvidenceType.LIVE_FEED,
+        }
+        if ticker and ticker_sensitive and ticker.upper() not in {
+            symbol.upper() for symbol in evidence.ticker_symbols
+        }:
+            continue
+        matched_items = _items_from_evidence(evidence)
+        if evidence.confidence < confidence_threshold:
+            low_confidence.extend(
+                f"{item} (low confidence: {evidence.confidence:.2f})"
+                for item in sorted(matched_items)
+            )
+            continue
+        available.update(matched_items)
 
     required = list(policy.required_evidence)
     optional = list(policy.preferred_evidence)
-    already = [item for item in required + optional if item in available]
+    already = [item for item in required + optional if item in available] + low_confidence
     missing = [item for item in required if item not in available]
     return WhatYouNeed(
         request_type=request_type,
