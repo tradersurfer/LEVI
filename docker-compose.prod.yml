@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      LEVI_ENV: production
+      LEVI_WORKSPACE_ROOT: /app/workspace
+      RUN_BOT: "false"
+      AUTO_EXECUTE: "false"
+      PORT: "${PORT:-8000}"
+      LEVI_CORS_ORIGINS: "${LEVI_CORS_ORIGINS:?set LEVI_CORS_ORIGINS}"
+      LEVI_EVIDENCE_ENCRYPTION_KEY: "${LEVI_EVIDENCE_ENCRYPTION_KEY:?set LEVI_EVIDENCE_ENCRYPTION_KEY}"
+    volumes:
+      - levi_workspace:/app/workspace
+
+volumes:
+  levi_workspace:
