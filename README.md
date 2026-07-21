@@ -274,3 +274,5 @@ Part of the **JECI Group AI Infrastructure**.
 > **"Markets reward discipline more than intelligence. LEVI is designed so discipline happens first."**
 
 **Paper trade first. Not financial advice.**
+
+Foundation documentation: [Phase 1, Step 1](docs/PHASE_1_STEP_1.md)
