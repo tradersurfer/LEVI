@@ -26,6 +26,7 @@ from levi.evidence.parsers import (
 )
 from levi.evidence.storage import EncryptedFilesystemStorage, StorageConfigurationError
 from levi.workspace.initializer import load_user_profile
+from levi.dashboard import DashboardService, build_dashboard_router
 
 log = logging.getLogger("JECI.api")
 
@@ -33,8 +34,21 @@ app = FastAPI(title="JECI Status API", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # shared state written by the bot, read by the API
-_shared: dict = {"report": None, "signals": {}, "trades": [], "blocklist": []}
+_shared: dict = {
+    "report": None, "signals": {}, "trades": [], "blocklist": [],
+    "positions": [], "decisions": [], "alerts": [],
+}
 evidence_registry = EvidenceRegistry()
+
+
+def _dashboard() -> DashboardService:
+    return DashboardService(shared=_shared, registry=evidence_registry)
+
+
+app.include_router(build_dashboard_router(
+    service_factory=_dashboard,
+    profile_loader=load_user_profile,
+))
 
 
 class WhatYouNeedRequest(BaseModel):
