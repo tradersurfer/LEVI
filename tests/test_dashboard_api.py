@@ -163,6 +163,29 @@ def test_service_account_count_is_user_scoped(profile):
     assert service.summary(profile)["open_positions"] == 0
 
 
+def test_summary_excludes_position_without_user_id(profile):
+    service = DashboardService(
+        shared={"positions": [{"symbol": "OWNERLESS", "unrealized_pnl": 999}]},
+        registry=evidence_registry,
+    )
+    summary = service.summary(profile)
+    assert summary["open_positions"] == 0
+    assert summary["daily_pnl"] == 0
+
+
+@pytest.mark.parametrize(
+    ("method_name", "response_key"),
+    [("positions", "positions"), ("trades", "trades"),
+     ("decisions", "decisions"), ("alerts", "alerts")],
+)
+def test_service_excludes_record_without_user_id(profile, method_name, response_key):
+    service = DashboardService(
+        shared={response_key: [{"symbol": "OWNERLESS", "message": "private"}]},
+        registry=evidence_registry,
+    )
+    assert getattr(service, method_name)(profile.user_id)[response_key] == []
+
+
 def test_service_contracts_are_json_safe(profile):
     service = DashboardService(shared={}, registry=evidence_registry)
     assert isinstance(service.summary(profile)["updated_at"], str)

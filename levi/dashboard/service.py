@@ -23,7 +23,7 @@ class DashboardService:
     def summary(self, profile: UserTradingProfile) -> dict[str, Any]:
         positions = [
             position for position in self.shared.get("positions", [])
-            if position.get("user_id", profile.user_id) == profile.user_id
+            if position.get("user_id") == profile.user_id
         ]
         realized = sum(float(item.get("realized_pnl", 0) or 0) for item in positions)
         unrealized = sum(float(item.get("unrealized_pnl", 0) or 0) for item in positions)
@@ -43,14 +43,14 @@ class DashboardService:
     def positions(self, user_id: str) -> dict[str, Any]:
         positions = [
             dict(item) for item in self.shared.get("positions", [])
-            if item.get("user_id", user_id) == user_id
+            if item.get("user_id") == user_id
         ]
         return {"user_id": user_id, "positions": positions, "count": len(positions)}
 
     def trades(self, user_id: str) -> dict[str, Any]:
         trades = [
             dict(item) for item in self.shared.get("trades", [])
-            if item.get("user_id", user_id) == user_id
+            if item.get("user_id") == user_id
         ]
         return {"user_id": user_id, "trades": trades, "count": len(trades)}
 
@@ -81,7 +81,7 @@ class DashboardService:
     def decisions(self, user_id: str) -> dict[str, Any]:
         decisions = [
             dict(item) for item in self.shared.get("decisions", [])
-            if item.get("user_id", user_id) == user_id
+            if item.get("user_id") == user_id
         ]
         votes = [str(item.get("verdict", item.get("decision", "pending"))).lower() for item in decisions]
         approved = len(votes) >= 3 and all(vote in {"approve", "approved", "yes"} for vote in votes[:3])
@@ -122,6 +122,6 @@ class DashboardService:
     def alerts(self, user_id: str) -> dict[str, Any]:
         alerts = [
             dict(item) for item in self.shared.get("alerts", [])
-            if item.get("user_id", user_id) == user_id
+            if item.get("user_id") == user_id
         ]
         return {"user_id": user_id, "alerts": alerts, "count": len(alerts)}
