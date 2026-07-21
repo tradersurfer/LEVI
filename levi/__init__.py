@@ -1,0 +1,1 @@
+"""LEVI application foundation contracts."""

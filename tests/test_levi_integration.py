@@ -9,7 +9,7 @@ Tastytrade API calls are made during the scan.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -75,9 +75,10 @@ class _Signal:
 # ── helper to build minimal fake chain so find_option succeeds ───────────────
 
 def _fake_chain():
+    expiration = (date.today() + timedelta(days=21)).isoformat()
     return [
         {
-            "expiration-date": "2026-07-19",
+            "expiration-date": expiration,
             "strikes": [
                 {
                     "strike-price": "135",
