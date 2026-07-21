@@ -14,3 +14,6 @@ uvicorn[standard]
 pytest
 anthropic
 openai
+SQLAlchemy>=2.0
+PyJWT>=2.8
+psycopg[binary]>=3.1
