@@ -33,6 +33,46 @@ jobs:
       - name: Build container
         run: docker build -t levi:${{ github.sha }} .
 
+      - name: Verify container runtime
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker stop levi-ci >/dev/null 2>&1 || true
+            docker rm levi-ci >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run -d --name levi-ci -p 8000:8000 levi:${{ github.sha }}
+          for attempt in {1..15}; do
+            if curl -fsS http://localhost:8000/health >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 15 ]; then
+              echo "FAIL: container did not become healthy"
+              docker logs levi-ci
+              exit 1
+            fi
+            sleep 2
+          done
+
+          curl -f http://localhost:8000/health
+          echo "PASS: /health returned 2xx"
+
+          curl -f http://localhost:8000/ready
+          echo "PASS: /ready returned 2xx"
+
+          container_user="$(docker exec levi-ci whoami)"
+          test "$container_user" = "levi"
+          echo "PASS: container user is levi"
+
+          matches="$(docker run --rm levi:${{ github.sha }} find / -xdev \( -name '.env' -o -name '.git' -o -path '*/workspace/*' \) 2>/dev/null || true)"
+          if [ -n "$matches" ]; then
+            echo "FAIL: sensitive build-context content found in image"
+            echo "$matches"
+            exit 1
+          fi
+          echo "PASS: no .env, .git, or workspace contents found in image"
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
