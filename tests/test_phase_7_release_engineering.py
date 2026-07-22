@@ -134,7 +134,13 @@ def test_performance_baseline_meets_targets():
 
 
 def test_public_documentation_inventory_exists():
-    expected = ["README.md", "GETTING_STARTED.md", "API_REFERENCE.md", "TROUBLESHOOTING.md", "FAQ.md", "CONTRIBUTING.md", "SECURITY.md", "ARCHITECTURE.md", "CHANGELOG.md", "docs/PHASE_7_DEPLOYMENT.md", "PHASE_7_IMPLEMENTATION_REPORT.md"]
+    expected = [
+        "README.md", "SECURITY.md", "CHANGELOG.md",
+        "docs/GETTING_STARTED.md", "docs/API_REFERENCE.md",
+        "docs/TROUBLESHOOTING.md", "docs/FAQ.md",
+        "docs/CONTRIBUTING.md", "docs/SECURITY.md",
+        "docs/ARCHITECTURE.md", "docs/PHASE_7_DEPLOYMENT.md",
+    ]
     assert all((ROOT / name).is_file() for name in expected)
 
 

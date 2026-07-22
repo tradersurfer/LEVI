@@ -21,6 +21,7 @@ from levi.auth.service import AuthService
 from levi.auth.supabase import SupabaseAuthAdapter
 from levi.deployment.environment import validate_environment
 from levi.dashboard import DashboardService, build_dashboard_router
+from levi.streaming import EventBus, PipelineRunner, build_streaming_router
 
 log = logging.getLogger("JECI.api")
 
@@ -50,6 +51,12 @@ _shared: dict = {
     "positions": [], "decisions": [], "alerts": [],
 }
 evidence_registry = EvidenceRegistry()
+agent_event_bus = EventBus()
+agent_pipeline_runner = PipelineRunner(
+    registry=evidence_registry,
+    profile_loader=load_user_profile,
+    bus=agent_event_bus,
+)
 
 
 def _dashboard() -> DashboardService:
@@ -58,6 +65,11 @@ def _dashboard() -> DashboardService:
 
 app.include_router(build_dashboard_router(
     service_factory=_dashboard,
+    profile_loader=load_user_profile,
+))
+app.include_router(build_streaming_router(
+    runner=agent_pipeline_runner,
+    bus=agent_event_bus,
     profile_loader=load_user_profile,
 ))
 
