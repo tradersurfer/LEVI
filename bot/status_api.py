@@ -116,6 +116,12 @@ def ready():
     }
 
 
+@app.get("/api/config")
+def public_config():
+    """Expose non-secret runtime capabilities needed by the browser client."""
+    return {"auth_enabled": os.getenv("LEVI_AUTH_ENABLED", "false").lower() == "true"}
+
+
 @app.get("/state")
 def get_state():
     if _shared["report"]:

@@ -9,9 +9,10 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
-from levi.agents import AtlasAgent, ConsensusEngine, GuardianAgent, LensAgent, ScoutAgent, ScribeAgent
-from levi.agents.models import AgentAnalysisRequest, AgentDecision, AgentVerdict, ConsensusDecision
+from levi.agents import AtlasAgent, ConsensusEngine, GuardianAgent, LensAgent, ScoutAgent, ScribeAgent, VoltAgent
+from levi.agents.models import AgentAnalysisRequest, AgentDecision, AgentVerdict, ConsensusDecision, decision
 from levi.evidence.registry import EvidenceRegistry
+from levi.greeks import BlackScholesInputs, OptionType
 from levi.llm import MockLLMAdapter, OpenRouterAdapter
 from levi.market_data.models import QuoteValidationResult
 from levi.profiles.models import UserTradingProfile
@@ -41,6 +42,7 @@ class PipelineRunner:
         guardian: GuardianAgent | None = None,
         consensus: ConsensusEngine | None = None,
         scribe: ScribeAgent | None = None,
+        volt: VoltAgent | None = None,
         risk_request_factory: RiskRequestFactory | None = None,
     ) -> None:
         self.registry = registry
@@ -51,6 +53,7 @@ class PipelineRunner:
         self.guardian = guardian or GuardianAgent()
         self.consensus = consensus or ConsensusEngine()
         self.scribe = scribe or ScribeAgent()
+        self.volt = volt or VoltAgent()
         self.risk_request_factory = risk_request_factory or self._safe_risk_request
         self._active: dict[str, str] = {}
         self._tasks: dict[str, asyncio.Task[ConsensusDecision | None]] = {}
@@ -94,7 +97,8 @@ class PipelineRunner:
                 event_id=str(uuid4()), request_id=request_id, user_id=user_id,
                 symbol=symbol, agent_name=agent_name, status=status,
                 verdict=values.get("verdict"), confidence=values.get("confidence"),
-                summary=values.get("summary"), sequence=sequence,
+                summary=values.get("summary"), approved=values.get("approved"),
+                guardian_blocked=values.get("guardian_blocked"), sequence=sequence,
             ))
 
         try:
@@ -122,6 +126,17 @@ class PipelineRunner:
                     verdict=decision.verdict, confidence=decision.confidence,
                     summary=decision.summary,
                 )
+
+            await emit("VOLT", AgentStatus.QUEUED)
+            await emit("VOLT", AgentStatus.RUNNING)
+            volt_decision = await asyncio.to_thread(self._analyze_volt, request)
+            decisions.append(volt_decision)
+            await emit(
+                "VOLT", AgentStatus.COMPLETE,
+                verdict=volt_decision.verdict,
+                confidence=volt_decision.confidence,
+                summary=volt_decision.summary,
+            )
 
             await emit("GUARDIAN", AgentStatus.QUEUED)
             await emit("GUARDIAN", AgentStatus.RUNNING)
@@ -162,6 +177,8 @@ class PipelineRunner:
                 verdict=consensus.verdict,
                 confidence=consensus.confidence,
                 summary="Consensus approved" if consensus.approved else "; ".join(consensus.warnings),
+                approved=consensus.approved,
+                guardian_blocked=consensus.guardian_blocked,
             )
             return consensus
         except Exception as exc:
@@ -208,3 +225,63 @@ class PipelineRunner:
             buying_power=profile.buying_power,
             approval_reference=None,
         )
+
+    def _analyze_volt(self, request: AgentAnalysisRequest) -> AgentDecision:
+        inputs, evidence_id = self._volt_inputs(request)
+        if inputs is None:
+            return decision(
+                "VOLT", request, AgentVerdict.INSUFFICIENT_EVIDENCE, 0.0,
+                "Options inputs required for deterministic Greeks are missing",
+                warnings=("VOLT did not invent missing Black-Scholes inputs",),
+            )
+        result = self.volt.analyze(inputs)
+        return decision(
+            "VOLT", request, AgentVerdict.NEUTRAL, 1.0,
+            f"Calculated delta {result.delta:.4f}, gamma {result.gamma:.4f}, and theta/day {result.theta_per_day:.4f}",
+            reasoning=("Deterministic Black-Scholes calculation from supplied evidence",),
+            evidence_ids=(evidence_id,),
+            metadata={
+                "source": result.source,
+                "calculated_value": result.calculated_value,
+                "delta": result.delta,
+                "gamma": result.gamma,
+                "theta_per_day": result.theta_per_day,
+                "vega_per_vol_point": result.vega_per_vol_point,
+                "rho_per_rate_point": result.rho_per_rate_point,
+                "spread_pct": result.spread_pct,
+                "liquid": result.liquid,
+            },
+        )
+
+    @staticmethod
+    def _volt_inputs(request: AgentAnalysisRequest) -> tuple[BlackScholesInputs | None, str]:
+        required = {"spot", "strike", "risk_free_rate", "volatility", "option_type"}
+        for evidence in request.evidence:
+            payload = dict(evidence.metadata or {})
+            payload.update(evidence.parsed_payload or {})
+            nested = payload.get("black_scholes_inputs")
+            if isinstance(nested, dict):
+                payload.update(nested)
+            if not required.issubset(payload):
+                continue
+            years = payload.get("time_to_expiration_years")
+            if years is None and payload.get("dte") is not None:
+                years = float(payload["dte"]) / 365
+            if years is None:
+                continue
+            try:
+                inputs = BlackScholesInputs(
+                    spot=float(payload["spot"]),
+                    strike=float(payload["strike"]),
+                    time_to_expiration_years=float(years),
+                    risk_free_rate=float(payload["risk_free_rate"]),
+                    volatility=float(payload["volatility"]),
+                    option_type=OptionType(str(payload["option_type"]).lower()),
+                    market_price=None if payload.get("market_price") is None else float(payload["market_price"]),
+                    bid=None if payload.get("bid") is None else float(payload["bid"]),
+                    ask=None if payload.get("ask") is None else float(payload["ask"]),
+                )
+            except (TypeError, ValueError):
+                continue
+            return inputs, evidence.evidence_id
+        return None, ""

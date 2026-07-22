@@ -17,7 +17,7 @@ class AgentStatus(str, Enum):
     ERROR = "error"
 
 
-_AGENT_NAMES = frozenset({"SCRIBE", "SCOUT", "ATLAS", "LENS", "GUARDIAN", "CONSENSUS"})
+_AGENT_NAMES = frozenset({"SCRIBE", "SCOUT", "ATLAS", "LENS", "VOLT", "GUARDIAN", "CONSENSUS"})
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,8 @@ class AgentProgressEvent:
     verdict: AgentVerdict | None = None
     confidence: float | None = None
     summary: str | None = None
+    approved: bool | None = None
+    guardian_blocked: bool | None = None
     sequence: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -57,6 +59,10 @@ class AgentProgressEvent:
             raise ValueError(f"unsupported agent_name: {agent_name}")
         if self.confidence is not None and not 0 <= self.confidence <= 1:
             raise ValueError("confidence must be between 0 and 1")
+        if self.approved is not None and not isinstance(self.approved, bool):
+            raise ValueError("approved must be a boolean or None")
+        if self.guardian_blocked is not None and not isinstance(self.guardian_blocked, bool):
+            raise ValueError("guardian_blocked must be a boolean or None")
         if self.sequence < 0:
             raise ValueError("sequence cannot be negative")
         if self.created_at.tzinfo is None:
@@ -78,6 +84,8 @@ class AgentProgressEvent:
             "verdict": self.verdict.value if self.verdict else None,
             "confidence": self.confidence,
             "summary": self.summary,
+            "approved": self.approved,
+            "guardian_blocked": self.guardian_blocked,
             "sequence": self.sequence,
             "created_at": self.created_at.isoformat(),
         }
