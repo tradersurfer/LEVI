@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" role="img" aria-labelledby="title desc">
+  <title id="title">LEVI mascot</title>
+  <desc id="desc">A navy shield with a calm blue robot face and the letter L.</desc>
+  <path fill="#1B365D" d="M70 5 124 25v39c0 35-21 58-54 71C37 122 16 99 16 64V25z"/>
+  <rect x="35" y="38" width="70" height="58" rx="18" fill="#fff"/>
+  <circle cx="56" cy="64" r="7" fill="#2F6FE4"/>
+  <circle cx="84" cy="64" r="7" fill="#2F6FE4"/>
+  <path d="M52 82h36" stroke="#1B365D" stroke-width="6" stroke-linecap="round"/>
+  <path d="M70 27v11" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="70" cy="22" r="6" fill="#2F6FE4"/>
+  <path d="M55 112h30" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+</svg>

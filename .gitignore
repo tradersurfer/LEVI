@@ -10,3 +10,5 @@ dist/
 /workspace/
 *.egg-info/
 .DS_Store
+/PHASE_*_IMPLEMENTATION_REPORT.md
+/INTEGRATION_REPORT.md

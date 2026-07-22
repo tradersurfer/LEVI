@@ -2,7 +2,7 @@
 
 ## Is LEVI live trading software?
 
-No. The alpha is paper-only, uses LIMIT orders, and provides no automatic live-execution path.
+No. The alpha is paper-only, uses LIMIT orders, and provides no live-execution path.
 
 ## Is LEVI financial advice?
 
@@ -16,10 +16,6 @@ No. The evidence gate reports missing inputs and blocks strict requirements when
 
 Yes by default. Production validation rejects plaintext evidence storage.
 
-## Is PostgreSQL required?
+## Are authentication and persistence required?
 
-Not for current in-memory contracts. Local Compose includes it as deployment scaffolding; persistence belongs to a separate phase.
-
-## Has v0.1.0-alpha been released?
-
-No. This branch prepares reviewable release assets only. Tagging and publication require explicit approval.
+No. Both are opt-in and disabled by default for local, single-user paper trading.
